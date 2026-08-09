@@ -221,6 +221,13 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   ...createEntries(homeRoute, ['settings.following_sort'], {
     keywordKeys: ['settings.following_sort_updated', 'settings.following_sort_group'],
   }),
+  ...createEntries(favoritesRoute, [
+    'settings.plugin.favorites',
+    'settings.group_favorites',
+    'settings.enable_favorites_drag_and_drop',
+    'settings.enable_favorites_drag_and_drop_desc',
+  ]),
+
   ...createEntries(homeRoute, [
     'settings.plugin.home',
     'settings.group_recommendation_mode',
