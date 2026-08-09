@@ -455,6 +455,8 @@ settings:
   video_player_scroll_desc: 启用后，在默认模式为宽屏和默认时，会自动滚动到合适位置。
   enlarge_favorite_dialog: 放大收藏弹窗
   enlarge_favorite_dialog_desc: 启用后，视频页收藏弹窗将以更大的尺寸显示，方便查看和管理收藏夹。
+  enable_favorites_drag_and_drop: 收藏拖放管理
+  enable_favorites_drag_and_drop_desc: 开启后可拖动整张视频卡片到收藏夹或底部删除区域，并隐藏卡片原有的取消收藏按钮。
   external_watch_later_button: 稍后再看按钮外置
   external_watch_later_button_desc: 启用后，视频页工具栏会显示独立的稍后再看按钮；按钮会显示当前视频状态，可点击添加或移除。
   show_vertical_video_zoom_button: 竖屏放大按钮

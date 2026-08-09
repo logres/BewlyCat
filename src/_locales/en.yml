@@ -1069,6 +1069,8 @@ settings:
     the default mode is widescreen and default.
   enlarge_favorite_dialog: Enlarge favorite dialog
   enlarge_favorite_dialog_desc: When enabled, the favorite dialog on video pages will be displayed in a larger size for easier viewing and management.
+  enable_favorites_drag_and_drop: Favorites drag and drop
+  enable_favorites_drag_and_drop_desc: Drag an entire video card to a folder or the bottom removal zone, and hide the original unfavorite button.
   external_watch_later_button: External watch later button
   external_watch_later_button_desc: Show a standalone Watch later button in the video toolbar. It displays the current state and can add or remove the video.
   show_vertical_video_zoom_button: Vertical video zoom button

@@ -94,6 +94,15 @@ interface VideoCardGridProps<T = any> {
    */
   cardClickHandler?: (item: T, event: MouseEvent) => void
 
+  /** 是否允许拖动指定卡片。 */
+  itemDraggable?: (item: T) => boolean
+
+  /** 卡片开始拖动。 */
+  itemDragStartHandler?: (item: T, event: DragEvent) => void
+
+  /** 卡片结束拖动。 */
+  itemDragEndHandler?: (item: T, event: DragEvent) => void
+
   /**
    * 观察卡片主链接点击，不接管 VideoCard 原有打开行为。
    */
@@ -1214,6 +1223,9 @@ function getUniqueKey(item: T, index: number): string | number {
           :type="renderItem.card.type"
           :video="renderItem.card.video"
           :persistent-state="getCardState(renderItem.card.key)"
+          :draggable="!renderItem.card.skeleton && Boolean(props.itemDraggable?.(renderItem.card.item))"
+          :drag-start-handler="(event: DragEvent) => props.itemDragStartHandler?.(renderItem.card!.item, event)"
+          :drag-end-handler="(event: DragEvent) => props.itemDragEndHandler?.(renderItem.card!.item, event)"
           :show-preview="showPreview"
           :show-watcher-later="showWatchLater"
           :horizontal="isHorizontal"

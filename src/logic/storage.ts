@@ -245,6 +245,7 @@ export interface Settings {
   hideCommentImageScrollbar: boolean // 评论区图片预览时隐藏页面滚动条
   enlargeFavoriteDialog: boolean // 视频页收藏夹放大样式增强
   enableSidebarCoverBlur: boolean // 页面侧栏封面高斯渐变背景
+  enableFavoritesDragAndDrop: boolean // 收藏页使用拖放移动与取消收藏
   externalWatchLaterButton: boolean // 稍后再看按钮外置
 
   // Grid 相关设置
@@ -556,6 +557,7 @@ export const originalSettings: Settings = {
   hideCommentImageScrollbar: false, // 默认不隐藏评论图片预览时的页面滚动条
   enlargeFavoriteDialog: false, // 默认关闭收藏夹放大样式
   enableSidebarCoverBlur: true, // 默认启用页面侧栏封面高斯渐变背景
+  enableFavoritesDragAndDrop: true, // 个人版默认启用收藏拖放管理
   externalWatchLaterButton: true, // 默认开启稍后再看按钮外置
 
   // Grid 相关默认设置

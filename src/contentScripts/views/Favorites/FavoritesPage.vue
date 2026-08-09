@@ -688,7 +688,7 @@ function resetFavoriteDragState() {
 }
 
 function handleFavoriteDragStart(item: FavoriteItem, event: DragEvent) {
-  if (!canBatchManage.value || isBatchOperating.value) {
+  if (!settings.value.enableFavoritesDragAndDrop || !canBatchManage.value || isBatchOperating.value) {
     event.preventDefault()
     return
   }
@@ -733,10 +733,14 @@ async function handleFavoriteTrashDrop(event: DragEvent) {
   const resources = [...draggedFavoriteResources.value]
   resetFavoriteDragState()
 
-  const confirmed = await showConfirmDialog(t('favorites.batch_unfavorite_confirm', { count: resources.length }))
-  if (confirmed && await deleteFavoriteResources(resources))
+  if (await deleteFavoriteResources(resources))
     closeBatchManage()
 }
+
+watch(() => settings.value.enableFavoritesDragAndDrop, (enabled) => {
+  if (!enabled)
+    resetFavoriteDragState()
+})
 
 function openBatchTransferDialog(action: BatchTransferAction) {
   if (selectedCount.value === 0 || targetCategoryOptions.value.length === 0 || isBatchOperating.value)
@@ -1338,46 +1342,39 @@ function transformFavoriteArticle(item: FavoriteArticle) {
           :hide-author="favoriteView === 'season'"
           :card-click-handler="isBatchManaging ? handleFavoriteCardClick : undefined"
           :cover-top-left-always-visible="isBatchManaging"
+          :item-draggable="() => settings.enableFavoritesDragAndDrop && favoriteView === 'video' && canBatchManage && !isBatchOperating"
+          :item-drag-start-handler="handleFavoriteDragStart"
+          :item-drag-end-handler="handleFavoriteDragEnd"
           enable-row-padding
           @refresh="() => handlePageRefresh?.()"
           @load-more="loadNextPage"
         >
           <template v-if="favoriteView === 'video'" #coverTopLeft="{ item }">
-            <div class="favorite-card-actions">
-              <button
-                v-if="isBatchManaging"
-                class="favorite-card-action"
-                :class="{ selected: isSelectedFavoriteResource(item) }"
-                @click.prevent.stop="toggleFavoriteResourceSelection(item)"
-              >
-                <Tooltip :content="$t('favorites.batch_select_item')" placement="bottom-left" type="dark">
-                  <div :class="isSelectedFavoriteResource(item) ? 'i-tabler:checkbox' : 'i-tabler:square'" />
-                </Tooltip>
-              </button>
-              <button
-                class="favorite-card-action favorite-card-drag-handle"
-                :class="{ selected: draggedFavoriteResources.some(resource => getFavoriteResourceKey(resource) === getFavoriteResourceKey(item)) }"
-                :aria-label="t('favorites.drag_video')"
-                :title="t('favorites.drag_video')"
-                draggable="true"
-                @click.prevent.stop
-                @dragstart.stop="handleFavoriteDragStart(item, $event)"
-                @dragend.stop="handleFavoriteDragEnd"
-              >
-                <span i-tabler:grip-vertical />
-              </button>
-              <button v-if="!isBatchManaging" class="favorite-card-action danger" @click.prevent.stop="handleUnfavorite(item)">
-                <Tooltip :content="$t('favorites.unfavorite')" placement="bottom-left" type="dark">
-                  <div i-ic-baseline-clear />
-                </Tooltip>
-              </button>
-            </div>
+            <button
+              v-if="isBatchManaging"
+              class="favorite-card-action"
+              :class="{ selected: isSelectedFavoriteResource(item) }"
+              @click.prevent.stop="toggleFavoriteResourceSelection(item)"
+            >
+              <Tooltip :content="$t('favorites.batch_select_item')" placement="bottom-left" type="dark">
+                <div :class="isSelectedFavoriteResource(item) ? 'i-tabler:checkbox' : 'i-tabler:square'" />
+              </Tooltip>
+            </button>
+            <button
+              v-else-if="!settings.enableFavoritesDragAndDrop"
+              class="favorite-card-action danger"
+              @click.prevent.stop="handleUnfavorite(item)"
+            >
+              <Tooltip :content="$t('favorites.unfavorite')" placement="bottom-left" type="dark">
+                <div i-ic-baseline-clear />
+              </Tooltip>
+            </button>
           </template>
         </VideoCardGrid>
 
         <Transition name="favorite-trash">
           <div
-            v-if="isDraggingFavoriteResources"
+            v-if="settings.enableFavoritesDragAndDrop && isDraggingFavoriteResources"
             class="favorite-trash-drop-zone"
             :class="{ active: dragDropTarget === 'trash' }"
             role="button"
@@ -1601,12 +1598,12 @@ function transformFavoriteArticle(item: FavoriteArticle) {
                   'row-active': !isManagingFolder && selectedCategory?.id === item.id,
                   'row-selected': isManagingFolder && selectedFolderIds.includes(item.id),
                   'row-disabled': isFullPageLoading,
-                  'row-drop-target': dragDropTarget === item.id,
-                  'row-drop-disabled': isDraggingFavoriteResources && selectedCategory?.id === item.id,
+                  'row-drop-target': settings.enableFavoritesDragAndDrop && dragDropTarget === item.id,
+                  'row-drop-disabled': settings.enableFavoritesDragAndDrop && isDraggingFavoriteResources && selectedCategory?.id === item.id,
                 }"
-                @dragenter.prevent="item.id !== selectedCategory?.id && (dragDropTarget = item.id)"
-                @dragover="item.id !== selectedCategory?.id && handleFavoriteDragOver(item.id, $event)"
-                @drop="handleFavoriteFolderDrop(item, $event)"
+                @dragenter.prevent="settings.enableFavoritesDragAndDrop && item.id !== selectedCategory?.id && (dragDropTarget = item.id)"
+                @dragover="settings.enableFavoritesDragAndDrop && item.id !== selectedCategory?.id && handleFavoriteDragOver(item.id, $event)"
+                @drop="settings.enableFavoritesDragAndDrop && handleFavoriteFolderDrop(item, $event)"
               >
                 <button
                   class="category-nav-item category-nav-item--folder"
@@ -2318,12 +2315,6 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   min-height: 240px;
 }
 
-.favorite-card-actions {
-  display: flex;
-  gap: var(--bew-space-1);
-  margin: var(--bew-space-1);
-}
-
 .favorite-card-action {
   display: grid;
   place-items: center;
@@ -2335,6 +2326,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   border-radius: var(--bew-interactive-radius);
   background: rgba(0, 0, 0, 0.62);
   cursor: pointer;
+  margin: var(--bew-space-1);
   transition: background-color var(--bew-duration-fast) var(--bew-ease-standard);
 }
 
@@ -2350,14 +2342,6 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   background: var(--bew-error-color);
 }
 
-.favorite-card-drag-handle {
-  cursor: grab;
-}
-
-.favorite-card-drag-handle:active {
-  cursor: grabbing;
-}
-
 .favorite-trash-drop-zone {
   position: fixed;
   z-index: 1000;
@@ -2366,8 +2350,10 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   display: flex;
   gap: var(--bew-space-2);
   align-items: center;
-  min-height: 52px;
-  padding: 0 var(--bew-space-5);
+  justify-content: center;
+  width: min(360px, calc(100vw - var(--bew-space-8)));
+  min-height: 76px;
+  padding: var(--bew-space-3) var(--bew-space-8);
   color: #fff;
   font-size: var(--bew-font-size-control);
   font-weight: var(--bew-font-weight-semibold);
@@ -2388,8 +2374,8 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 }
 
 .favorite-trash-drop-zone > span:first-child {
-  width: var(--bew-icon-size-md);
-  height: var(--bew-icon-size-md);
+  width: var(--bew-icon-size-lg);
+  height: var(--bew-icon-size-lg);
 }
 
 .favorite-trash-drop-zone strong {

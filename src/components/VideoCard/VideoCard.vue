@@ -37,6 +37,9 @@ interface Props {
   coverTopLeftAlwaysVisible?: boolean
   coverTopRightAlwaysVisible?: boolean
   persistentState?: VideoCardState
+  draggable?: boolean
+  dragStartHandler?: (event: DragEvent) => void
+  dragEndHandler?: (event: DragEvent) => void
 }
 
 const layout = computed((): VideoCardLayoutSetting => {
@@ -344,6 +347,9 @@ provide('getVideoType', () => props.type!)
     :style="disableContentVisibility
       ? { contentVisibility: 'visible', containIntrinsicSize: 'none' }
       : undefined"
+    :draggable="draggable"
+    @dragstart="dragStartHandler"
+    @dragend="dragEndHandler"
   >
     <div
       class="video-card group"
@@ -358,7 +364,7 @@ provide('getVideoType', () => props.type!)
           type: 'videoCard',
           customClickEvent: Boolean(props.customClickHandler) || settings.videoCardLinkOpenMode === 'drawer' || settings.videoCardLinkOpenMode === 'background',
           customClickEventIncludesModifiers: Boolean(props.customClickHandler),
-          disableDragging: shouldDisableLinkDragging,
+          disableDragging: shouldDisableLinkDragging || draggable,
         }"
         v-on="coverSkeleton ? {} : linkEvents"
       >

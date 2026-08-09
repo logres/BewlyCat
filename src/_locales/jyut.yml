@@ -986,6 +986,8 @@ settings:
   video_player_scroll_desc: 啓用後，若果顯示模式係闊螢幕或預設嗰陣，會自動轆到合適嘅位置。
   enlarge_favorite_dialog: 放大收藏彈窗
   enlarge_favorite_dialog_desc: 啓用後，影片頁收藏彈窗會用更大嘅尺寸顯示，方便睇同管理收藏夾。
+  enable_favorites_drag_and_drop: 收藏拖放管理
+  enable_favorites_drag_and_drop_desc: 開啟後可以拖動成張影片卡去收藏夾或者底部刪除區域，亦會收埋原本嘅取消收藏掣。
   external_watch_later_button: 稍後再睇按鈕外置
   external_watch_later_button_desc: 啓用後，影片頁工具欄會顯示獨立嘅陣間至睇按鈕；按鈕會顯示目前影片狀態，可以撳一下加入或者剷走。
   show_vertical_video_zoom_button: 直屏影片放大按鈕
