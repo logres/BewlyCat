@@ -1263,6 +1263,8 @@ favorites:
   batch_move_dialog_desc: 選擇目標收藏夾，確認後將移動已選的 {count} 個影片。
   batch_target_folder: 目標收藏夾
   batch_unfavorite: 取消收藏
+  drag_video: 拖曳整理影片
+  drop_to_unfavorite: 拖到這裡取消收藏
   batch_unfavorite_confirm: |-
     要取消收藏已選的 {count} 個影片嗎？
     此操作無法撤消，你確定要取消收藏這些影片嗎？

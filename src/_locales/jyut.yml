@@ -1263,6 +1263,8 @@ favorites:
   batch_move_dialog_desc: 揀目標收藏夾，確認後會移動已揀嘅 {count} 條片。
   batch_target_folder: 目標收藏夾
   batch_unfavorite: 唔愛喇
+  drag_video: 拖動整理影片
+  drop_to_unfavorite: 拖到呢度取消收藏
   batch_unfavorite_confirm: |-
     係咪要剷走已揀嘅 {count} 條片呀？
     噉做冇得返轉頭噃，你確定要剷走呢啲片？

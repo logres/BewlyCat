@@ -1348,6 +1348,8 @@ favorites:
   batch_move_dialog_desc: Choose a target folder. {count} selected video(s) will be moved after confirmation.
   batch_target_folder: Target folder
   batch_unfavorite: Unfavorite
+  drag_video: Drag to organize
+  drop_to_unfavorite: Drop here to unfavorite
   batch_unfavorite_confirm: |-
     Remove {count} selected video(s)?
     This operation cannot be reversed. Are you sure you want to remove these video(s) from your favorites?

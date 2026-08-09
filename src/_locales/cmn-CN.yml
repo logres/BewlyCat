@@ -1248,6 +1248,8 @@ favorites:
   batch_move_dialog_desc: 选择目标收藏夹，确认后将移动已选的 {count} 个视频。
   batch_target_folder: 目标收藏夹
   batch_unfavorite: 取消收藏
+  drag_video: 拖动整理视频
+  drop_to_unfavorite: 拖到这里取消收藏
   batch_unfavorite_confirm: |-
     要取消收藏已选的 {count} 个视频吗？
     该操作无法撤销，你确定要取消收藏这些视频吗？

@@ -78,7 +78,11 @@ const editFolderTitle = ref<string>('')
 const editFolderPublic = ref<boolean>(true)
 const itemMenuTarget = ref<{ type: SidebarManageSection, id: number } | null>(null)
 const itemMenuStyles = ref<CSSProperties>({})
+const draggedFavoriteResources = ref<FavoriteItem[]>([])
+const dragDropTarget = ref<number | 'trash' | null>(null)
 let contentRequestVersion = 0
+
+const isDraggingFavoriteResources = computed(() => draggedFavoriteResources.value.length > 0)
 
 function notifyTopBarFavoritesChanged() {
   void topBarStore.notifyFavoritesChanged().catch((error) => {
@@ -604,27 +608,134 @@ function toggleBatchManage() {
   isBatchManaging.value = true
 }
 
-function getSelectedResourceParam() {
-  return selectedFavoriteResources.value.map(item => getFavoriteResourceKey(item)).join(',')
+function getFavoriteResourceParam(resources: Array<FavoriteResource | FavoriteItem>) {
+  return resources.map(item => getFavoriteResourceKey(item)).join(',')
 }
 
-function removeSelectedResourcesFromList() {
-  const selectedKeys = new Set(selectedResourceKeys.value)
+function removeFavoriteResourcesFromList(resources: Array<FavoriteResource | FavoriteItem>) {
+  const removedKeys = new Set(resources.map(item => getFavoriteResourceKey(item)))
   for (let index = favoriteResources.length - 1; index >= 0; index--) {
-    if (selectedKeys.has(getFavoriteResourceKey(favoriteResources[index])))
+    if (removedKeys.has(getFavoriteResourceKey(favoriteResources[index])))
       favoriteResources.splice(index, 1)
   }
   if (selectedCategory.value)
-    selectedCategory.value.media_count = Math.max(0, selectedCategory.value.media_count - selectedKeys.size)
-  resetBatchSelection()
+    selectedCategory.value.media_count = Math.max(0, selectedCategory.value.media_count - removedKeys.size)
+  selectedResourceKeys.value = selectedResourceKeys.value.filter(key => !removedKeys.has(key))
 }
 
-function increaseTargetCategoryCount(count: number) {
-  if (!targetCategory.value)
-    return
-  const category = favoriteCategories.find(item => item.id === targetCategory.value?.id)
+function increaseCategoryCount(categoryId: number, count: number) {
+  const category = favoriteCategories.find(item => item.id === categoryId)
   if (category)
     category.media_count += count
+}
+
+async function deleteFavoriteResources(resources: FavoriteItem[]) {
+  if (!selectedCategory.value || resources.length === 0 || isBatchOperating.value)
+    return false
+
+  isBatchOperating.value = true
+  try {
+    const res = await api.favorite.patchDelFavoriteResources({
+      resources: getFavoriteResourceParam(resources),
+      media_id: selectedCategory.value.id,
+      csrf: getCSRF(),
+    })
+    if (res.code !== 0) {
+      toast.error(res.message)
+      return false
+    }
+
+    removeFavoriteResourcesFromList(resources)
+    notifyTopBarFavoritesChanged()
+    return true
+  }
+  finally {
+    isBatchOperating.value = false
+  }
+}
+
+async function moveFavoriteResources(resources: FavoriteItem[], destination: CategoryItem) {
+  if (!selectedCategory.value || resources.length === 0 || isBatchOperating.value)
+    return false
+
+  isBatchOperating.value = true
+  try {
+    const res = await api.favorite.moveFavoriteResources({
+      resources: getFavoriteResourceParam(resources),
+      src_media_id: selectedCategory.value.id,
+      tar_media_id: destination.id,
+      mid: getUserID(),
+      csrf: getCSRF(),
+    })
+    if (res.code !== 0) {
+      toast.error(res.message)
+      return false
+    }
+
+    increaseCategoryCount(destination.id, resources.length)
+    removeFavoriteResourcesFromList(resources)
+    notifyTopBarFavoritesChanged()
+    return true
+  }
+  finally {
+    isBatchOperating.value = false
+  }
+}
+
+function resetFavoriteDragState() {
+  draggedFavoriteResources.value = []
+  dragDropTarget.value = null
+}
+
+function handleFavoriteDragStart(item: FavoriteItem, event: DragEvent) {
+  if (!canBatchManage.value || isBatchOperating.value) {
+    event.preventDefault()
+    return
+  }
+
+  const resources = isBatchManaging.value && isSelectedFavoriteResource(item)
+    ? [...selectedFavoriteResources.value]
+    : [item]
+
+  draggedFavoriteResources.value = resources
+  event.dataTransfer?.setData('text/plain', getFavoriteResourceParam(resources))
+  if (event.dataTransfer)
+    event.dataTransfer.effectAllowed = 'move'
+}
+
+function handleFavoriteDragEnd() {
+  resetFavoriteDragState()
+}
+
+function handleFavoriteDragOver(target: number | 'trash', event: DragEvent) {
+  if (!isDraggingFavoriteResources.value || isBatchOperating.value)
+    return
+  event.preventDefault()
+  if (event.dataTransfer)
+    event.dataTransfer.dropEffect = 'move'
+  dragDropTarget.value = target
+}
+
+async function handleFavoriteFolderDrop(destination: CategoryItem, event: DragEvent) {
+  if (!isDraggingFavoriteResources.value || destination.id === selectedCategory.value?.id)
+    return
+  event.preventDefault()
+  const resources = [...draggedFavoriteResources.value]
+  resetFavoriteDragState()
+  if (await moveFavoriteResources(resources, destination))
+    closeBatchManage()
+}
+
+async function handleFavoriteTrashDrop(event: DragEvent) {
+  if (!isDraggingFavoriteResources.value)
+    return
+  event.preventDefault()
+  const resources = [...draggedFavoriteResources.value]
+  resetFavoriteDragState()
+
+  const confirmed = await showConfirmDialog(t('favorites.batch_unfavorite_confirm', { count: resources.length }))
+  if (confirmed && await deleteFavoriteResources(resources))
+    closeBatchManage()
 }
 
 function openBatchTransferDialog(action: BatchTransferAction) {
@@ -648,47 +759,16 @@ async function handleBatchDelete() {
   if (!result)
     return
 
-  isBatchOperating.value = true
-  try {
-    const res = await api.favorite.patchDelFavoriteResources({
-      resources: getSelectedResourceParam(),
-      media_id: selectedCategory.value.id,
-      csrf: getCSRF(),
-    })
-    if (res.code === 0)
-      removeSelectedResourcesFromList()
-    if (res.code === 0)
-      notifyTopBarFavoritesChanged()
-  }
-  finally {
-    isBatchOperating.value = false
-  }
+  if (await deleteFavoriteResources([...selectedFavoriteResources.value]))
+    closeBatchManage()
 }
 
 async function handleBatchMove() {
   if (!selectedCategory.value || !targetCategory.value || selectedCount.value === 0)
     return
 
-  isBatchOperating.value = true
-  try {
-    const movedCount = selectedCount.value
-    const res = await api.favorite.moveFavoriteResources({
-      resources: getSelectedResourceParam(),
-      src_media_id: selectedCategory.value.id,
-      tar_media_id: targetCategory.value.id,
-      mid: getUserID(),
-      csrf: getCSRF(),
-    })
-    if (res.code === 0) {
-      increaseTargetCategoryCount(movedCount)
-      removeSelectedResourcesFromList()
-      closeBatchManage()
-      notifyTopBarFavoritesChanged()
-    }
-  }
-  finally {
-    isBatchOperating.value = false
-  }
+  if (await moveFavoriteResources([...selectedFavoriteResources.value], targetCategory.value))
+    closeBatchManage()
 }
 
 async function handleBatchCopy() {
@@ -699,14 +779,14 @@ async function handleBatchCopy() {
   try {
     const copiedCount = selectedCount.value
     const res = await api.favorite.copyFavoriteResources({
-      resources: getSelectedResourceParam(),
+      resources: getFavoriteResourceParam(selectedFavoriteResources.value),
       src_media_id: selectedCategory.value.id,
       tar_media_id: targetCategory.value.id,
       mid: getUserID(),
       csrf: getCSRF(),
     })
     if (res.code === 0) {
-      increaseTargetCategoryCount(copiedCount)
+      increaseCategoryCount(targetCategory.value.id, copiedCount)
       resetBatchSelection()
       closeBatchTransferDialog()
       notifyTopBarFavoritesChanged()
@@ -1029,22 +1109,8 @@ async function handleUnfavorite(favoriteResource: FavoriteResource) {
   const result = await showConfirmDialog(
     t('favorites.unfavorite_confirm'),
   )
-  if (result) {
-    api.favorite.patchDelFavoriteResources({
-      resources: `${favoriteResource.id}:${favoriteResource.type}`,
-      media_id: selectedCategory.value?.id,
-      csrf: getCSRF(),
-    }).then((res) => {
-      if (res.code === 0) {
-        const resourceIndex = favoriteResources.indexOf(favoriteResource as FavoriteItem)
-        if (resourceIndex >= 0)
-          favoriteResources.splice(resourceIndex, 1)
-        if (selectedCategory.value)
-          selectedCategory.value.media_count = Math.max(0, selectedCategory.value.media_count - 1)
-        notifyTopBarFavoritesChanged()
-      }
-    })
-  }
+  if (result)
+    await deleteFavoriteResources([favoriteResource as FavoriteItem])
 }
 
 function isMusic(item: FavoriteResource) {
@@ -1277,23 +1343,54 @@ function transformFavoriteArticle(item: FavoriteArticle) {
           @load-more="loadNextPage"
         >
           <template v-if="favoriteView === 'video'" #coverTopLeft="{ item }">
-            <button
-              v-if="isBatchManaging"
-              class="favorite-card-action"
-              :class="{ selected: isSelectedFavoriteResource(item) }"
-              @click.prevent.stop="toggleFavoriteResourceSelection(item)"
-            >
-              <Tooltip :content="$t('favorites.batch_select_item')" placement="bottom-left" type="dark">
-                <div :class="isSelectedFavoriteResource(item) ? 'i-tabler:checkbox' : 'i-tabler:square'" />
-              </Tooltip>
-            </button>
-            <button v-else class="favorite-card-action danger" @click.prevent.stop="handleUnfavorite(item)">
-              <Tooltip :content="$t('favorites.unfavorite')" placement="bottom-left" type="dark">
-                <div i-ic-baseline-clear />
-              </Tooltip>
-            </button>
+            <div class="favorite-card-actions">
+              <button
+                v-if="isBatchManaging"
+                class="favorite-card-action"
+                :class="{ selected: isSelectedFavoriteResource(item) }"
+                @click.prevent.stop="toggleFavoriteResourceSelection(item)"
+              >
+                <Tooltip :content="$t('favorites.batch_select_item')" placement="bottom-left" type="dark">
+                  <div :class="isSelectedFavoriteResource(item) ? 'i-tabler:checkbox' : 'i-tabler:square'" />
+                </Tooltip>
+              </button>
+              <button
+                class="favorite-card-action favorite-card-drag-handle"
+                :class="{ selected: draggedFavoriteResources.some(resource => getFavoriteResourceKey(resource) === getFavoriteResourceKey(item)) }"
+                :aria-label="t('favorites.drag_video')"
+                :title="t('favorites.drag_video')"
+                draggable="true"
+                @click.prevent.stop
+                @dragstart.stop="handleFavoriteDragStart(item, $event)"
+                @dragend.stop="handleFavoriteDragEnd"
+              >
+                <span i-tabler:grip-vertical />
+              </button>
+              <button v-if="!isBatchManaging" class="favorite-card-action danger" @click.prevent.stop="handleUnfavorite(item)">
+                <Tooltip :content="$t('favorites.unfavorite')" placement="bottom-left" type="dark">
+                  <div i-ic-baseline-clear />
+                </Tooltip>
+              </button>
+            </div>
           </template>
         </VideoCardGrid>
+
+        <Transition name="favorite-trash">
+          <div
+            v-if="isDraggingFavoriteResources"
+            class="favorite-trash-drop-zone"
+            :class="{ active: dragDropTarget === 'trash' }"
+            role="button"
+            :aria-label="t('favorites.drop_to_unfavorite')"
+            @dragenter.prevent="dragDropTarget = 'trash'"
+            @dragover="handleFavoriteDragOver('trash', $event)"
+            @drop="handleFavoriteTrashDrop"
+          >
+            <span i-tabler:trash />
+            <span>{{ t('favorites.drop_to_unfavorite') }}</span>
+            <strong>{{ draggedFavoriteResources.length }}</strong>
+          </div>
+        </Transition>
       </template>
 
       <Dialog
@@ -1504,7 +1601,12 @@ function transformFavoriteArticle(item: FavoriteArticle) {
                   'row-active': !isManagingFolder && selectedCategory?.id === item.id,
                   'row-selected': isManagingFolder && selectedFolderIds.includes(item.id),
                   'row-disabled': isFullPageLoading,
+                  'row-drop-target': dragDropTarget === item.id,
+                  'row-drop-disabled': isDraggingFavoriteResources && selectedCategory?.id === item.id,
                 }"
+                @dragenter.prevent="item.id !== selectedCategory?.id && (dragDropTarget = item.id)"
+                @dragover="item.id !== selectedCategory?.id && handleFavoriteDragOver(item.id, $event)"
+                @drop="handleFavoriteFolderDrop(item, $event)"
               >
                 <button
                   class="category-nav-item category-nav-item--folder"
@@ -1523,7 +1625,11 @@ function transformFavoriteArticle(item: FavoriteArticle) {
                       ? 'i-tabler:lock'
                       : (selectedFolderIds.includes(item.id) ? 'i-tabler:checkbox' : 'i-tabler:square')"
                   />
-                  <span v-else class="category-icon" i-tabler:folder />
+                  <span
+                    v-else
+                    class="category-icon"
+                    :class="dragDropTarget === item.id ? 'i-tabler:folder-down' : 'i-tabler:folder'"
+                  />
                   <span class="category-title">{{ item.title }}</span>
                   <Tooltip
                     :content="isFavoriteFolderPrivate(item) ? t('favorites.folder_private') : t('favorites.folder_public')"
@@ -1962,6 +2068,18 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   background: var(--favorites-sidebar-active);
 }
 
+.category-item.row-drop-target {
+  color: #fff;
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: -2px;
+  background: color-mix(in oklab, var(--bew-theme-color), transparent 18%);
+}
+
+.category-item.row-drop-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .item-more-btn,
 .item-more-placeholder {
   flex: 0 0 auto;
@@ -2200,12 +2318,17 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   min-height: 240px;
 }
 
+.favorite-card-actions {
+  display: flex;
+  gap: var(--bew-space-1);
+  margin: var(--bew-space-1);
+}
+
 .favorite-card-action {
   display: grid;
   place-items: center;
   min-width: 34px;
   height: 30px;
-  margin: var(--bew-space-1);
   padding: 0 var(--bew-space-2);
   color: #fff;
   border: 0;
@@ -2225,6 +2348,70 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 
 .favorite-card-action.danger:hover {
   background: var(--bew-error-color);
+}
+
+.favorite-card-drag-handle {
+  cursor: grab;
+}
+
+.favorite-card-drag-handle:active {
+  cursor: grabbing;
+}
+
+.favorite-trash-drop-zone {
+  position: fixed;
+  z-index: 1000;
+  bottom: var(--bew-space-6);
+  left: 50%;
+  display: flex;
+  gap: var(--bew-space-2);
+  align-items: center;
+  min-height: 52px;
+  padding: 0 var(--bew-space-5);
+  color: #fff;
+  font-size: var(--bew-font-size-control);
+  font-weight: var(--bew-font-weight-semibold);
+  line-height: var(--bew-line-height-control);
+  border: 2px dashed rgba(255, 255, 255, 0.72);
+  border-radius: var(--bew-radius-full);
+  background: color-mix(in oklab, var(--bew-error-color), rgba(0, 0, 0, 0.38) 28%);
+  box-shadow: var(--bew-shadow-3);
+  transform: translateX(-50%);
+  transition:
+    background-color var(--bew-duration-fast) var(--bew-ease-standard),
+    transform var(--bew-duration-fast) var(--bew-ease-standard);
+}
+
+.favorite-trash-drop-zone.active {
+  background: var(--bew-error-color);
+  transform: translateX(-50%) scale(1.06);
+}
+
+.favorite-trash-drop-zone > span:first-child {
+  width: var(--bew-icon-size-md);
+  height: var(--bew-icon-size-md);
+}
+
+.favorite-trash-drop-zone strong {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: var(--bew-radius-full);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.favorite-trash-enter-active,
+.favorite-trash-leave-active {
+  transition:
+    opacity var(--bew-duration-fast) var(--bew-ease-standard),
+    transform var(--bew-duration-fast) var(--bew-ease-standard);
+}
+
+.favorite-trash-enter-from,
+.favorite-trash-leave-to {
+  opacity: 0;
+  transform: translate(-50%, var(--bew-space-4));
 }
 
 .batch-transfer-dialog {
