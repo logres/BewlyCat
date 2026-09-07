@@ -226,6 +226,16 @@ const gridColumnCount = ref(1)
 const gridCardWidth = ref<number>(CARD_MAX_WIDTH_BY_COLUMNS[1])
 let rebalanceTimer: ReturnType<typeof setTimeout> | null = null
 const hoveredMediaId = ref('')
+let previewEnterTimer: ReturnType<typeof setTimeout> | undefined
+let previewRequestGeneration = 0
+function cancelPendingPreview() {
+  previewRequestGeneration += 1
+  clearTimeout(previewEnterTimer)
+  previewEnterTimer = undefined
+}
+watch(hoveredMediaId, cancelPendingPreview, { flush: 'sync' })
+onBeforeUnmount(cancelPendingPreview)
+
 const previewUrls = reactive<Record<string, string>>({})
 const likingMomentIds = reactive(new Set<string>())
 const reservationLoadingMomentIds = reactive(new Set<string>())
@@ -2998,7 +3008,7 @@ async function setupStreamPreview(url: string, videoEl: HTMLVideoElement, moment
 function isMomentPreviewEnabled(moment: DisplayMoment) {
   if (moment.isLive)
     return settings.value.momentsEnableLivePreview
-  if (moment.isVideo)
+  if (moment.isVideo || moment.forward?.video)
     return settings.value.momentsEnableVideoPreview
   return false
 }
@@ -3071,13 +3081,23 @@ async function getVideoCid(bvid: string) {
   return request
 }
 
-async function handleMediaEnter(moment: DisplayMoment) {
-  if (!isMomentPreviewEnabled(moment))
+function handleMediaEnter(moment: DisplayMoment) {
+  if (!isMomentPreviewEnabled(moment) || hoveredMediaId.value === moment.id)
     return
 
   hoveredMediaId.value = moment.id
+  const generation = previewRequestGeneration
+  const delay = moment.isLive ? 0 : (settings.value.momentsVideoPreviewDelayed ? 1200 : 500)
+  previewEnterTimer = setTimeout(() => {
+    previewEnterTimer = undefined
+    void loadMomentPreview(moment, generation)
+  }, delay)
+}
 
-  if (previewUrls[moment.id])
+async function loadMomentPreview(moment: DisplayMoment, generation: number) {
+  const isCurrentRequest = () => generation === previewRequestGeneration
+    && hoveredMediaId.value === moment.id && isMomentPreviewEnabled(moment)
+  if (!isCurrentRequest() || previewUrls[moment.id])
     return
 
   try {
@@ -3087,26 +3107,26 @@ async function handleMediaEnter(moment: DisplayMoment) {
         platform: 'web',
         qn: 80,
       })
-      if (hoveredMediaId.value !== moment.id || !isMomentPreviewEnabled(moment))
+      if (!isCurrentRequest())
         return
       if (res.code === 0 && res.data?.durl?.[0]?.url)
         previewUrls[moment.id] = httpsUrl(res.data.durl[0].url)
       return
     }
 
-    if (!moment.isVideo || !moment.bvid)
+    const video = moment.forward?.video || moment
+    if (!video.bvid)
       return
 
-    const cid = await getVideoCid(moment.bvid)
-    if (!cid || hoveredMediaId.value !== moment.id || !isMomentPreviewEnabled(moment))
+    const cid = await getVideoCid(video.bvid)
+    if (!cid || !isCurrentRequest())
       return
 
-    const preview = await api.video.getVideoPreview({ bvid: moment.bvid, cid })
+    const preview = await api.video.getVideoPreview({ bvid: video.bvid, cid })
     if (
       preview.code === 0
       && preview.data?.durl?.[0]?.url
-      && hoveredMediaId.value === moment.id
-      && isMomentPreviewEnabled(moment)
+      && isCurrentRequest()
     ) {
       previewUrls[moment.id] = httpsUrl(preview.data.durl[0].url)
     }
@@ -3117,6 +3137,8 @@ async function handleMediaEnter(moment: DisplayMoment) {
 }
 
 function handleMediaLeave(moment: DisplayMoment) {
+  if (activePreviewVideo?.id === moment.id && activePreviewVideo.element.matches(':fullscreen'))
+    return
   if (hoveredMediaId.value !== moment.id)
     return
   hoveredMediaId.value = ''
@@ -4015,10 +4037,12 @@ watch(
   [
     () => settings.value.momentsEnableLivePreview,
     () => settings.value.momentsEnableVideoPreview,
+    () => settings.value.momentsVideoPreviewDelayed,
+    () => settings.value.momentsOnlyCoverVideoPreview,
   ],
   () => {
     const activeMoment = moments.value.find(moment => moment.id === hoveredMediaId.value)
-    if (!activeMoment || isMomentPreviewEnabled(activeMoment))
+    if (!activeMoment)
       return
 
     hoveredMediaId.value = ''

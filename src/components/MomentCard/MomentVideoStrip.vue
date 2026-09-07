@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 
 import VideoWatchedTag from '~/components/VideoWatchedTag.vue'
 
+import MomentVideoPreview from './MomentVideoPreview.vue'
+
 // 可选项缺省为 undefined，模板按 falsy 处理；cover/title 等必传项由调用方保证
 defineProps<{
   /** 最终封面图 URL；空串回落到文字封面 */
@@ -44,6 +46,7 @@ const emit = defineEmits<{
   mediaLeave: []
   previewVideo: [element: Element | null]
   previewCanplay: [event: Event]
+  previewLeave: []
   authorClick: [event: MouseEvent]
 }>()
 
@@ -72,15 +75,12 @@ function handlePreviewRef(element: Element | ComponentPublicInstance | null) {
       <span i-tabler-player-play-filled class="moment-card__text-cover-icon" aria-hidden="true" />
       <span>{{ textCoverText }}</span>
     </span>
-    <video
+    <MomentVideoPreview
       v-if="previewActive && previewUrl"
-      :ref="handlePreviewRef"
-      :src="previewUrl"
-      autoplay
-      muted
-      loop
-      playsinline
+      :url="previewUrl"
+      @video="handlePreviewRef"
       @canplay="emit('previewCanplay', $event)"
+      @leave="emit('previewLeave')"
     />
     <span
       v-if="showStats"

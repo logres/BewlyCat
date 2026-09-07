@@ -16,6 +16,7 @@ import { toggleCommentPreview } from './commentPreview'
 import MomentComments from './MomentComments.vue'
 import MomentImageGallery from './MomentImageGallery.vue'
 import MomentImageGrid from './MomentImageGrid.vue'
+import MomentVideoPreview from './MomentVideoPreview.vue'
 import MomentVideoStrip from './MomentVideoStrip.vue'
 import MomentVote from './MomentVote.vue'
 import type { DisplayForwardVideo, DisplayMoment, WatchLaterTarget } from './types'
@@ -340,6 +341,10 @@ function handleCardClick(event: MouseEvent) {
 }
 
 function handlePermalinkClick(event: MouseEvent) {
+  // 预览先处理控制条和拖动手势，再由冒泡阶段决定是否打开视频。
+  if (event.eventPhase === Event.CAPTURING_PHASE && (event.target as HTMLElement | null)?.closest('.moment-video-preview'))
+    return
+
   // 整卡 a 内嵌的交互件（稍后再看等）自行处理点击，这里只拦掉默认跳转
   const nested = (event.target as HTMLElement | null)?.closest('button, a')
   if (nested && nested !== event.currentTarget) {
@@ -536,6 +541,8 @@ function handleAdditionalClick(event: MouseEvent) {
     tabindex="0"
     role="button"
     :style="cardLayoutStyles"
+    @mouseenter="!moment.isLive && !settings.momentsOnlyCoverVideoPreview && emit('mediaEnter', moment)"
+    @mouseleave="emit('mediaLeave', moment)"
     @click="handleCardClick"
     @keydown.enter.self="emit('openDetail', moment)"
   >
@@ -665,6 +672,7 @@ function handleAdditionalClick(event: MouseEvent) {
             class="moment-card__video-card moment-card__video-card--original"
             :aria-label="t('moment_card.open_original_video', { title: moment.title })"
             @click.capture="handlePermalinkClick"
+            @click="handlePermalinkClick"
           >
             <MomentVideoStrip
               :cover="moment.images.length ? getMomentThumbnailUrl(moment.images[0]) : ''"
@@ -674,7 +682,7 @@ function handleAdditionalClick(event: MouseEvent) {
               :author="moment.author.name"
               :text-cover-text="t('moment_card.video_post')"
               :charge-badge="moment.isChargeExclusive ? (moment.chargeBadge || t('moment_card.charging_exclusive')) : ''"
-              :show-stats="showVideoCoverStats"
+              :show-stats="showVideoCoverStats && !(previewActive && settings.momentsEnableVideoControls)"
               :show-play="settings.showVideoCardViewCount && Boolean(moment.videoPlay)"
               :play="moment.videoPlay"
               :show-duration="showVideoDuration"
@@ -688,8 +696,9 @@ function handleAdditionalClick(event: MouseEvent) {
               :preview-url="previewUrl"
               @toggle-watch-later="emit('toggleWatchLater', moment)"
               @cover-load="handleCoverLoad"
-              @media-enter="emit('mediaEnter', moment)"
-              @media-leave="emit('mediaLeave', moment)"
+              @media-enter="settings.momentsOnlyCoverVideoPreview && emit('mediaEnter', moment)"
+              @media-leave="settings.momentsOnlyCoverVideoPreview && emit('mediaLeave', moment)"
+              @preview-leave="emit('mediaLeave', moment)"
               @preview-video="handlePreviewVideo"
               @preview-canplay="(event: Event) => emit('previewCanplay', event)"
             />
@@ -699,8 +708,8 @@ function handleAdditionalClick(event: MouseEvent) {
           <div
             v-if="moment.images.length && (moment.isVideo || moment.isLive)"
             class="moment-card__media moment-card__cover moment-card__cover--media"
-            @mouseenter="emit('mediaEnter', moment)"
-            @mouseleave="emit('mediaLeave', moment)"
+            @mouseenter="(moment.isLive || settings.momentsOnlyCoverVideoPreview) && emit('mediaEnter', moment)"
+            @mouseleave="(moment.isLive || settings.momentsOnlyCoverVideoPreview) && emit('mediaLeave', moment)"
           >
             <a
               v-if="cardHref"
@@ -720,18 +729,16 @@ function handleAdditionalClick(event: MouseEvent) {
               decoding="async"
               @load="handleCoverLoad"
             >
-            <video
+            <MomentVideoPreview
               v-if="previewActive && previewUrl"
-              :ref="handlePreviewVideo"
-              :src="moment.isLive ? undefined : previewUrl"
-              autoplay
-              muted
-              :loop="!moment.isLive"
-              playsinline
+              :url="previewUrl"
+              :live="moment.isLive"
+              @video="handlePreviewVideo"
               @canplay="emit('previewCanplay', $event)"
+              @leave="emit('mediaLeave', moment)"
             />
             <span
-              v-if="moment.isVideo && showVideoCoverStats"
+              v-if="moment.isVideo && showVideoCoverStats && !(previewActive && settings.momentsEnableVideoControls)"
               class="moment-card__video-stats"
             >
               <span class="moment-card__video-stat-group">
@@ -874,7 +881,7 @@ function handleAdditionalClick(event: MouseEvent) {
                   :author="moment.forward.author"
                   :text-cover-text="moment.forward.fallback"
                   stats-in-info
-                  :show-stats="showForwardVideoDuration"
+                  :show-stats="showForwardVideoDuration && !(previewActive && settings.momentsEnableVideoControls)"
                   :show-play="settings.showVideoCardViewCount && Boolean(moment.forward.video.play)"
                   :play="moment.forward.video.play"
                   :show-danmaku="settings.showVideoCardDanmakuCount && Boolean(moment.forward.video.danmaku)"
@@ -886,6 +893,13 @@ function handleAdditionalClick(event: MouseEvent) {
                   :watch-later-enabled="settings.showVideoCardWatchLater && Boolean(getWatchLaterStateKey(moment.forward.video))"
                   :watch-later-added="isWatchLaterAdded(moment.forward.video)"
                   :watch-later-loading="isWatchLaterLoading(moment.forward.video)"
+                  :preview-active="previewActive"
+                  :preview-url="previewUrl"
+                  @media-enter="settings.momentsOnlyCoverVideoPreview && emit('mediaEnter', moment)"
+                  @media-leave="settings.momentsOnlyCoverVideoPreview && emit('mediaLeave', moment)"
+                  @preview-leave="emit('mediaLeave', moment)"
+                  @preview-video="handlePreviewVideo"
+                  @preview-canplay="(event: Event) => emit('previewCanplay', event)"
                   @toggle-watch-later="emit('toggleWatchLater', moment.forward.video)"
                 />
               </a>
@@ -1656,7 +1670,7 @@ function handleAdditionalClick(event: MouseEvent) {
   grid-template-columns: minmax(150px, 44%) minmax(0, 1fr);
   margin-top: var(--bew-space-3);
   overflow: hidden;
-  border: 1px solid color-mix(in oklab, var(--bew-border-color), transparent 58%);
+  border: 1px solid var(--bew-border-color);
   border-radius: var(--bew-card-radius);
   color: inherit;
   background: var(--bew-fill-1);
@@ -1683,10 +1697,12 @@ function handleAdditionalClick(event: MouseEvent) {
   min-width: 0;
   flex-direction: column;
   gap: var(--bew-space-3);
-  margin-top: var(--bew-space-3);
+  margin-top: var(--bew-space-4);
   padding: var(--bew-space-3);
+  border: 1px solid var(--bew-border-color);
   border-radius: var(--bew-card-radius);
   background: var(--bew-fill-1);
+  box-sizing: border-box;
 }
 
 .moment-card__forward-video-header {
@@ -1743,7 +1759,7 @@ function handleAdditionalClick(event: MouseEvent) {
 
 .moment-card__video-card--forward:hover,
 .moment-card__video-card--forward:focus-visible {
-  background: var(--bew-content-alt-solid);
+  background: var(--bew-content-solid);
 }
 
 /* ---- 横条视频卡内容：DOM 在 MomentVideoStrip 子组件内，经 :deep 穿透 ---- */

@@ -336,6 +336,10 @@ export interface Settings {
   momentsTabsPosition: TabsPosition
   momentsEnableLivePreview: boolean
   momentsEnableVideoPreview: boolean
+  momentsEnableVideoControls: boolean
+  momentsEnableVideoPreviewSwipeSeek: boolean
+  momentsVideoPreviewDelayed: boolean
+  momentsOnlyCoverVideoPreview: boolean
   /** Bewly 动态页期望列数；窄屏会自动降列 */
   momentsGridColumns: '1' | '2'
   momentsEnableWantedFilter: boolean
@@ -648,6 +652,10 @@ export const originalSettings: Settings = {
   momentsTabsPosition: 'left',
   momentsEnableLivePreview: true,
   momentsEnableVideoPreview: true,
+  momentsEnableVideoControls: false,
+  momentsEnableVideoPreviewSwipeSeek: false,
+  momentsVideoPreviewDelayed: false,
+  momentsOnlyCoverVideoPreview: true,
   momentsGridColumns: '2',
   momentsEnableWantedFilter: true,
   momentsFilterUpRecommendation: false,

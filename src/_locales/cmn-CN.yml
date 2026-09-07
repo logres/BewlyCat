@@ -303,7 +303,7 @@ settings:
   moments_enable_live_preview: 直播动态悬停预览
   moments_enable_live_preview_desc: 鼠标悬停直播动态封面时播放直播预览。
   moments_enable_video_preview: 视频动态悬停预览
-  moments_enable_video_preview_desc: 鼠标悬停视频动态封面时播放视频预览。
+  moments_enable_video_preview_desc: 鼠标悬停视频动态或转发视频时播放预览，可设置触发范围、延迟和播放交互。
   moments_grid_columns: 动态列数
   moments_tabs_position: 动态标签栏位置
   moments_grid_columns_desc: 设置 Bewly 动态页的期望列数。卡片尺寸会随列数自适应；窗口空间不足时会自动减少列数，左侧栏与动态流整体保持居中。
