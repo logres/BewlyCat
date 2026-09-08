@@ -76,12 +76,6 @@ const momentsRoute: SearchRoute = {
   secondaryTitleKey: 'settings.plugin.moments',
   storageKey: bewlyPagesStorageKey,
 }
-const favoritesRoute: SearchRoute = {
-  menu: MenuType.BewlyPages,
-  secondaryPage: 'favorites',
-  secondaryTitleKey: 'settings.plugin.favorites',
-  storageKey: bewlyPagesStorageKey,
-}
 const videoCardRoute: SearchRoute = {
   menu: MenuType.BewlyComponents,
   secondaryPage: 'video-card',
@@ -223,12 +217,6 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   ...createEntries(videoCardRoute, [
     'settings.menu_bewly_components',
   ], { targetTitleKey: 'settings.plugin.video_card' }),
-
-  ...createEntries(favoritesRoute, [
-    'settings.plugin.favorites',
-    'settings.group_favorites',
-    'settings.favorite_cover_blur',
-  ]),
 
   ...createEntries(homeRoute, ['settings.following_sort'], {
     keywordKeys: ['settings.following_sort_updated', 'settings.following_sort_group'],
@@ -568,6 +556,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   ...createEntries(appearanceRoute, [
     'settings.menu_appearance',
     'settings.group_visual_effects',
+    'settings.sidebar_cover_blur',
     'settings.enable_frosted_glass',
     'settings.frosted_glass_blur_intensity',
     'settings.enable_liquid_segment_indicator',

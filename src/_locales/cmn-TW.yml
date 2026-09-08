@@ -264,8 +264,8 @@ settings:
   group_following: 正在跟隨
   group_following_desc: 設定「正在跟隨」頁面的版面、直播內容與影片過濾規則。
   group_favorites: 收藏
-  favorite_cover_blur: 收藏夾封面高斯漸變
-  favorite_cover_blur_desc: 在收藏頁側邊欄使用目前封面產生高斯模糊漸變背景；關閉後使用類似設定介面的中性面板，隨淺深色模式切換，不受封面顏色影響。
+  sidebar_cover_blur: 側邊欄封面高斯漸變
+  sidebar_cover_blur_desc: 在收藏、稍後再看等頁面側邊欄使用封面模糊背景；關閉後使用透出頁面桌布的 Pop 背景，不隨封面染色。
   group_search_page_mode: 搜尋頁模式
   group_home_tabs: 首頁標籤欄
   group_home_layout: 首頁版面

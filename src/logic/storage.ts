@@ -244,7 +244,7 @@ export interface Settings {
   adjustCommentImageHeight: boolean // 调整评论区图片高度以匹配实际比例
   hideCommentImageScrollbar: boolean // 评论区图片预览时隐藏页面滚动条
   enlargeFavoriteDialog: boolean // 视频页收藏夹放大样式增强
-  enableFavoriteCoverBlur: boolean // 收藏页侧栏封面高斯渐变背景
+  enableSidebarCoverBlur: boolean // 页面侧栏封面高斯渐变背景
   externalWatchLaterButton: boolean // 稍后再看按钮外置
 
   // Grid 相关设置
@@ -555,7 +555,7 @@ export const originalSettings: Settings = {
   adjustCommentImageHeight: true, // 默认启用评论图片高度调整
   hideCommentImageScrollbar: false, // 默认不隐藏评论图片预览时的页面滚动条
   enlargeFavoriteDialog: false, // 默认关闭收藏夹放大样式
-  enableFavoriteCoverBlur: true, // 默认启用收藏页侧栏封面高斯渐变背景
+  enableSidebarCoverBlur: true, // 默认启用页面侧栏封面高斯渐变背景
   externalWatchLaterButton: true, // 默认开启稍后再看按钮外置
 
   // Grid 相关默认设置
@@ -890,6 +890,11 @@ watch(
   () => settings.value,
   (value) => {
     const record = value as Record<string, any>
+
+    if (typeof record.enableFavoriteCoverBlur === 'boolean') {
+      record.enableSidebarCoverBlur = record.enableFavoriteCoverBlur
+      Reflect.deleteProperty(record, 'enableFavoriteCoverBlur')
+    }
 
     Reflect.deleteProperty(record, 'detectCommentShadowBan')
     Reflect.deleteProperty(record, 'showBewlyOrBiliTopBarSwitcher')

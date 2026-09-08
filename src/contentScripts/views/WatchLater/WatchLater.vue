@@ -520,6 +520,11 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
 
     <aside relative w="full md:40% lg:30% xl:25%" order="1 md:2 lg:2">
       <div
+        class="watch-later-sidebar-panel"
+        :class="{
+          'watch-later-sidebar-panel--cover': settings.enableSidebarCoverBlur,
+          'bew-popover-surface bew-popover-surface--wallpaper': !settings.enableSidebarCoverBlur,
+        }"
         pos="sticky top-120px"
         w-full h="230px md:[calc(100vh-160px)]"
         my-10
@@ -528,12 +533,13 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
       >
         <!-- Frosted Glass Cover -->
         <div
+          v-if="settings.enableSidebarCoverBlur"
           pos="absolute top-0 left-0" w-full h-inherit
           z--1
         >
           <div
             absolute w-full h-inherit
-            bg="$bew-fill-4"
+            bg="$bew-sidebar-cover-mask"
           />
           <img
             v-if="currentWatchLaterList[0]"
@@ -545,6 +551,7 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
 
         <!-- Content -->
         <main
+          class="watch-later-sidebar-content"
           pos="absolute top-0 left-0"
           w-full h-inherit
           overflow-overlay
@@ -562,12 +569,14 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
             >
           </picture>
 
-          <h3 class="bew-page-heading" text="white" style="text-shadow: 0 0 12px rgba(0,0,0,.3)">
+          <h3 class="bew-page-heading">
             {{ t('watch_later.title') }} ({{ watchLaterCount }})
           </h3>
           <div v-if="watchLaterCount > 0" flex="~ col" gap-2 w-full>
             <Button
-              color="rgba(255,255,255,.35)" block text-color="white" strong
+              type="secondary" block strong
+              :color="settings.enableSidebarCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
+              :text-color="settings.enableSidebarCoverBlur ? 'white' : undefined"
               @click="handlePlayAll"
             >
               <template #left>
@@ -576,7 +585,9 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
               {{ t('common.play_all') }}
             </Button>
             <Button
-              color="rgba(255,255,255,.35)" block text-color="white" strong
+              type="secondary" block strong
+              :color="settings.enableSidebarCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
+              :text-color="settings.enableSidebarCoverBlur ? 'white' : undefined"
               @click="handleClearAllWatchLater"
             >
               <template #left>
@@ -585,7 +596,9 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
               {{ t('watch_later.clear_all') }}
             </Button>
             <Button
-              color="rgba(255,255,255,.35)" block text-color="white" strong
+              type="secondary" block strong
+              :color="settings.enableSidebarCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
+              :text-color="settings.enableSidebarCoverBlur ? 'white' : undefined"
               @click="handleRemoveWatchedVideos"
             >
               <template #left>
@@ -606,6 +619,29 @@ function handleOpenVideoPageAndRemove(index: number, bvid: string, aid: number) 
 </template>
 
 <style lang="scss" scoped>
+.watch-later-sidebar-panel--cover {
+  isolation: isolate;
+}
+
+.watch-later-sidebar-panel--cover .bew-page-heading {
+  color: white;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+}
+
+.watch-later-sidebar-content {
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+}
+
+.watch-later-sidebar-content > * {
+  flex-shrink: 0;
+}
+
+.watch-later-sidebar-content :deep(.b-button) {
+  flex-shrink: 0;
+  min-height: var(--bew-control-height);
+}
+
 .watch-later-layout-item {
   &__icon {
     pointer-events: none;

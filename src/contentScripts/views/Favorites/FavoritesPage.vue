@@ -1356,12 +1356,12 @@ function transformFavoriteArticle(item: FavoriteArticle) {
       <div
         class="favorites-sidebar-panel"
         :class="{
-          'favorites-sidebar-panel--cover': settings.enableFavoriteCoverBlur,
-          'bew-popover-surface': !settings.enableFavoriteCoverBlur,
-          'bew-popover-surface--wallpaper': !settings.enableFavoriteCoverBlur,
+          'favorites-sidebar-panel--cover': settings.enableSidebarCoverBlur,
+          'bew-popover-surface': !settings.enableSidebarCoverBlur,
+          'bew-popover-surface--wallpaper': !settings.enableSidebarCoverBlur,
         }"
       >
-        <div v-if="settings.enableFavoriteCoverBlur" class="favorites-sidebar-background" aria-hidden="true">
+        <div v-if="settings.enableSidebarCoverBlur" class="favorites-sidebar-background" aria-hidden="true">
           <div />
           <img
             v-if="selectedContentCover"
@@ -1404,7 +1404,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
               <LiquidSegmentIndicator
                 v-if="settings.enableLiquidSegmentIndicator"
                 :active-key="favoriteView"
-                :white="settings.enableFavoriteCoverBlur"
+                :white="settings.enableSidebarCoverBlur"
               />
               <button
                 v-for="option in favoriteViewOptions"
@@ -1481,9 +1481,9 @@ function transformFavoriteArticle(item: FavoriteArticle) {
           <Button
             v-else-if="favoriteView !== 'article'"
             type="secondary"
-            :color="settings.enableFavoriteCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
+            :color="settings.enableSidebarCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
             block
-            :text-color="settings.enableFavoriteCoverBlur ? 'white' : undefined"
+            :text-color="settings.enableSidebarCoverBlur ? 'white' : undefined"
             strong
             :disabled="searchScope === 'all' || isResolvingSeasonPlayAll"
             @click="handlePlayAll"
@@ -1700,7 +1700,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 .favorites-sidebar-background div {
   position: absolute;
   z-index: 1;
-  background: var(--bew-favorites-cover-mask);
+  background: var(--bew-sidebar-cover-mask);
   inset: 0;
 }
 
@@ -1737,6 +1737,15 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   border-radius: var(--bew-media-radius);
   box-shadow: 0 16px 24px -12px rgba(0, 0, 0, 0.36);
   aspect-ratio: 16 / 9;
+}
+
+.favorites-sidebar-content > :deep(.b-button) {
+  flex: 0 0 auto;
+  min-height: var(--bew-control-height);
+}
+
+.favorites-sidebar-title {
+  flex-shrink: 0;
 }
 
 .favorites-sidebar-cover img {

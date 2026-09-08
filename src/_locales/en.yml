@@ -268,8 +268,8 @@ settings:
   group_following: Following
   group_following_desc: Configure the Following page layout, live content, and video filters.
   group_favorites: Favorites
-  favorite_cover_blur: Favorite cover blur gradient
-  favorite_cover_blur_desc: Use the current cover to create a blurred gradient background in the favorites sidebar. Turn it off for a neutral panel like Settings that follows light/dark mode without cover tinting.
+  sidebar_cover_blur: Sidebar cover blur gradient
+  sidebar_cover_blur_desc: Use blurred covers in page sidebars such as Favorites and Watch Later. Turn it off to use a Pop surface that lets the page wallpaper show through without cover tinting.
   group_search_page_mode: Search Page Mode
   group_home_tabs: Home Tabs
   group_home_layout: Home Layout
