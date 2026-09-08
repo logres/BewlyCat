@@ -7,6 +7,7 @@ import { applyAutoPlayByVideoType, detectVideoType, disableNativeEndPlaybackBeha
 // 随机播放状态管理
 let isRandomPlayEnabled = false
 let isRandomPlayInitialized = false
+let randomPlayInitTimer: ReturnType<typeof setTimeout> | null = null
 const visitedEpisodes = new Set<string>()
 let originalEndedListener: ((event: Event) => void) | null = null
 let originalDurationListener: (() => void) | null = null
@@ -192,7 +193,7 @@ const recommendationRootSelector = [
   '.next-play',
 ].join(', ')
 
-function findPlaylistAutoPlayContainer(): HTMLElement | null {
+function findCustomPlayControlsHost(): HTMLElement | null {
   // A single-video page can still expose an auto-play control for the
   // recommendation list. Custom order controls belong only to a real episode
   // playlist, never to that recommendation block.
@@ -205,14 +206,19 @@ function findPlaylistAutoPlayContainer(): HTMLElement | null {
 
   const candidates = Array.from(document.querySelectorAll<HTMLElement>('.auto-play, .continuous-btn'))
     .filter(candidate => !candidate.closest(recommendationRootSelector))
-  if (candidates.length === 0)
-    return null
-
   const episodeCandidate = candidates.find((candidate) => {
     const root = candidate.closest(episodeRootSelector)
     return !!root && episodes.some(episode => root.contains(episode))
   })
-  return episodeCandidate ?? candidates[0]
+  if (episodeCandidate?.parentElement)
+    return episodeCandidate.parentElement
+
+  // 新版合集（包括搬入 Bewly 宽屏的列表）可能不再提供原生连播开关。
+  // 控件挂在实际包含选集的合集标题区，随原生列表一起搬入/移出宽屏。
+  const header = Array.from(document.querySelectorAll<HTMLElement>('.video-pod > .video-pod__header'))
+    .find(header => !header.closest(recommendationRootSelector)
+      && episodes.some(episode => header.parentElement?.contains(episode)))
+  return header ?? candidates[0]?.parentElement ?? null
 }
 
 function normalizeEpisodeText(value: string | null | undefined): string {
@@ -728,18 +734,20 @@ function toggleNativePlaylistEditing(button: HTMLButtonElement): void {
 
 // 创建随机播放UI
 export function createRandomPlayUI(): HTMLElement | null {
-  // 查找自动连播按钮的容器
-  const autoPlayContainer = findPlaylistAutoPlayContainer()
-  if (!autoPlayContainer)
+  const controlsHost = findCustomPlayControlsHost()
+  if (!controlsHost)
     return null
 
   // 检查是否已存在随机播放按钮
   const existingRandomPlay = document.querySelector<HTMLElement>('.random-play')
   if (existingRandomPlay) {
-    if (existingRandomPlay.closest(recommendationRootSelector))
+    if (existingRandomPlay.closest(recommendationRootSelector)) {
       existingRandomPlay.remove()
-    else
-      return null
+    }
+    else {
+      mountCustomPlayControls(existingRandomPlay, controlsHost)
+      return existingRandomPlay
+    }
   }
 
   // 创建播放顺序控件容器
@@ -769,16 +777,17 @@ export function createRandomPlayUI(): HTMLElement | null {
   orderSelect.setAttribute('aria-label', getRandomPlayText())
   orderSelect.title = getRandomPlayText()
   orderSelect.style.cssText = `
-    width: 96px;
+    width: auto;
+    min-width: 0;
+    flex-shrink: 0;
     height: 26px;
-    padding: 0 24px 0 8px;
+    padding: 0 var(--bew-space-1, 4px);
     cursor: pointer;
     color: var(--text2, #61666d);
     background: var(--bg2, #f6f7f8);
     border: 1px solid var(--line_regular, #e3e5e7);
     border-radius: 6px;
     font: inherit;
-    outline: none;
   `
   const orderOptions: Array<{ label: string, value: RandomPlayOrder }> = [
     { label: t('settings.random_play_order_sequential'), value: 'sequential' },
@@ -892,13 +901,19 @@ export function createRandomPlayUI(): HTMLElement | null {
   // 初始状态 - 使用当前状态
   updateSwitchState(isRandomPlayEnabled)
 
-  // 插入到自动连播按钮旁边
-  const rightContainer = autoPlayContainer.parentElement
-  if (rightContainer) {
-    rightContainer.appendChild(randomPlayContainer)
-  }
+  mountCustomPlayControls(randomPlayContainer, controlsHost)
 
   return randomPlayContainer
+}
+
+function mountCustomPlayControls(controls: HTMLElement, host: HTMLElement): void {
+  const isHeader = host.matches('.video-pod__header')
+  controls.style.justifyContent = isHeader ? 'flex-end' : ''
+  controls.style.marginLeft = isHeader ? '0' : 'var(--bew-space-3, 12px)'
+  // 原生 header-bottom 已有底部留白，标题区不再叠加顶距。
+  controls.style.marginTop = '0'
+  if (controls.parentElement !== host)
+    host.appendChild(controls)
 }
 
 // 启用随机播放
@@ -1103,6 +1118,7 @@ export function applyRandomPlayActivationSettings(): void {
 // 重置初始化状态
 export function resetRandomPlayInitialization(): void {
   clearPageChangeTimers()
+  clearRandomPlayInitTimer()
   stopNativePlaylistEditing()
   isRandomPlayInitialized = false
   randomPlayInitGeneration++
@@ -1115,6 +1131,7 @@ export function destroyRandomPlay(): void {
   pageChangeObserver?.disconnect()
   pageChangeObserver = null
   clearPageChangeTimers()
+  clearRandomPlayInitTimer()
   stopNativePlaylistEditing()
   randomPlayInitGeneration++
   setRandomPlayEnabled(false)
@@ -1187,19 +1204,24 @@ export function syncRandomPlayUI(): void {
 
 // 在视频页面初始化随机播放
 export function initRandomPlayOnVideoPage(): void {
-  if (!isCustomPlayPage() || isRandomPlayInitialized)
+  if (!isCustomPlayPage() || !settings.value.enableRandomPlay
+    || isRandomPlayInitialized || randomPlayInitTimer !== null) {
     return
+  }
 
   const generation = randomPlayInitGeneration
   let attempts = 0
 
   // 等待页面元素加载
   const checkAndInit = () => {
-    if (generation !== randomPlayInitGeneration || isRandomPlayInitialized)
+    randomPlayInitTimer = null
+    if (generation !== randomPlayInitGeneration || isRandomPlayInitialized
+      || !isCustomPlayPage() || !settings.value.enableRandomPlay) {
       return
+    }
 
-    const autoPlayContainer = findPlaylistAutoPlayContainer()
-    if (autoPlayContainer) {
+    const controlsHost = findCustomPlayControlsHost()
+    if (controlsHost) {
       // 只要启用了随机播放功能就创建UI（基于扩展设置）
       if (settings.value.enableRandomPlay) {
         createRandomPlayUI()
@@ -1209,12 +1231,19 @@ export function initRandomPlayOnVideoPage(): void {
     }
     else if (++attempts < RANDOM_PLAY_INIT_MAX_ATTEMPTS) {
       // 如果元素还没有加载，继续等待
-      setTimeout(checkAndInit, 100)
+      randomPlayInitTimer = setTimeout(checkAndInit, 100)
     }
   }
 
   // 延迟初始化，确保页面完全加载
-  setTimeout(checkAndInit, 500)
+  randomPlayInitTimer = setTimeout(checkAndInit, 500)
+}
+
+function clearRandomPlayInitTimer(): void {
+  if (randomPlayInitTimer !== null) {
+    clearTimeout(randomPlayInitTimer)
+    randomPlayInitTimer = null
+  }
 }
 
 function clearPageChangeTimers() {
@@ -1243,9 +1272,9 @@ export function observeRandomPlayPageChanges(): void {
       return
     }
 
-    // 使用防抖避免频繁触发
+    // 合并短时间内的 DOM 更新，但不能被持续更新的评论等内容无限推迟。
     if (pageChangeDebounceTimer !== null)
-      clearTimeout(pageChangeDebounceTimer)
+      return
 
     pageChangeDebounceTimer = setTimeout(() => {
       pageChangeDebounceTimer = null
@@ -1255,18 +1284,23 @@ export function observeRandomPlayPageChanges(): void {
       if (customEpisodeOrder.length > 0)
         applyCustomEpisodeVisualOrder()
 
-      if (!isRandomPlayInitialized)
+      if (!isRandomPlayInitialized) {
+        // 首轮轮询可能早于合集加载完成；容器出现后继续初始化。
+        // 仅在目标存在时重试，避免无选集页面反复启动轮询。
+        if (findCustomPlayControlsHost())
+          initRandomPlayOnVideoPage()
         return
+      }
 
       // 检查随机播放按钮是否还存在
       const existingBtn = document.querySelector('.random-play-btn')
-      const autoPlayContainer = findPlaylistAutoPlayContainer()
+      const controlsHost = findCustomPlayControlsHost()
       const existingRandomPlay = document.querySelector<HTMLElement>('.random-play')
-      const isMisplacedRandomPlay = !!existingRandomPlay?.closest(recommendationRootSelector)
+      const isMisplacedRandomPlay = !!existingRandomPlay && existingRandomPlay.parentElement !== controlsHost
 
-      // 如果按钮不存在但应该存在（有自动播放容器且启用了功能），则重新创建。
+      // 如果按钮不存在但应该存在（有控件挂载位置且启用了功能），则重新创建。
       // 不要求 mutation 本身包含 auto-play；B 站常只替换其共同父容器。
-      if ((!existingBtn || isMisplacedRandomPlay) && autoPlayContainer && pageChangeRebuildTimer === null) {
+      if ((!existingBtn || isMisplacedRandomPlay) && controlsHost && pageChangeRebuildTimer === null) {
         const generation = randomPlayInitGeneration
         pageChangeRebuildTimer = setTimeout(() => {
           pageChangeRebuildTimer = null
@@ -1278,7 +1312,7 @@ export function observeRandomPlayPageChanges(): void {
           applyPreservedOrDefaultCustomPlay()
         }, 500)
       }
-    }, 300) // 300ms防抖延迟
+    }, 300)
   })
 
   // 内容脚本在 document_start 注入，设置水合触发的初始化可能早于 <body> 解析；
