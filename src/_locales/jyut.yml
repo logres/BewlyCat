@@ -293,6 +293,8 @@ settings:
   group_following: 跟緊啲人
   group_following_desc: 設定「跟緊啲人」頁面嘅版面、直播內容同影片過濾規則。
   group_favorites: 收藏
+  favorite_cover_blur: 收藏夾封面高斯漸變
+  favorite_cover_blur_desc: 喺收藏頁側邊欄用目前封面整高斯模糊漸變背景；閂咗之後會用類似設定介面嘅中性面板，跟淺深色模式切換，唔受封面顏色影響。
   group_search_page_mode: 搵嘢頁模式
   group_home_tabs: 主頁分頁欄
   group_home_layout: 主頁版面

@@ -227,6 +227,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   ...createEntries(favoritesRoute, [
     'settings.plugin.favorites',
     'settings.group_favorites',
+    'settings.favorite_cover_blur',
   ]),
 
   ...createEntries(homeRoute, ['settings.following_sort'], {

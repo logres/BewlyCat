@@ -343,6 +343,10 @@ html.dark.bewly-design {
   backdrop-filter: var(--bew-filter-glass-1);
 }
 
+.bew-popover-surface--wallpaper {
+  background: var(--bew-popover-wallpaper-background);
+}
+
 .bew-settings-option--lift {
   cursor: pointer;
   transition:

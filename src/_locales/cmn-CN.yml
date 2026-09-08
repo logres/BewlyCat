@@ -265,6 +265,8 @@ settings:
   group_following: 正在关注
   group_following_desc: 配置“正在关注”页面的布局、直播内容与视频过滤规则。
   group_favorites: 收藏
+  favorite_cover_blur: 收藏夹封面高斯渐变
+  favorite_cover_blur_desc: 在收藏页侧栏使用当前封面生成高斯模糊渐变背景；关闭后使用类似设置界面的中性面板，随亮暗模式切换，不受封面颜色影响。
   group_search_page_mode: 搜索页模式
   group_home_tabs: 首页标签栏
   group_home_layout: 首页布局

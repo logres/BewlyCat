@@ -1149,7 +1149,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 
       <div
         v-if="favoriteView === 'video'"
-        class="favorites-toolbar"
+        class="favorites-toolbar bew-popover-surface bew-popover-surface--wallpaper"
       >
         <div class="toolbar-search-group">
           <Select v-model="searchScope" class="search-scope-select" :options="searchScopeOptions" @change="handleSearchScopeChange" />
@@ -1353,8 +1353,15 @@ function transformFavoriteArticle(item: FavoriteArticle) {
     </main>
 
     <aside class="favorites-old-sidebar">
-      <div class="favorites-sidebar-panel">
-        <div class="favorites-sidebar-background">
+      <div
+        class="favorites-sidebar-panel"
+        :class="{
+          'favorites-sidebar-panel--cover': settings.enableFavoriteCoverBlur,
+          'bew-popover-surface': !settings.enableFavoriteCoverBlur,
+          'bew-popover-surface--wallpaper': !settings.enableFavoriteCoverBlur,
+        }"
+      >
+        <div v-if="settings.enableFavoriteCoverBlur" class="favorites-sidebar-background" aria-hidden="true">
           <div />
           <img
             v-if="selectedContentCover"
@@ -1397,7 +1404,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
               <LiquidSegmentIndicator
                 v-if="settings.enableLiquidSegmentIndicator"
                 :active-key="favoriteView"
-                white
+                :white="settings.enableFavoriteCoverBlur"
               />
               <button
                 v-for="option in favoriteViewOptions"
@@ -1473,9 +1480,10 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 
           <Button
             v-else-if="favoriteView !== 'article'"
-            color="rgba(255,255,255,.35)"
+            type="secondary"
+            :color="settings.enableFavoriteCoverBlur ? 'rgba(255,255,255,.35)' : undefined"
             block
-            text-color="white"
+            :text-color="settings.enableFavoriteCoverBlur ? 'white' : undefined"
             strong
             :disabled="searchScope === 'all' || isResolvingSeasonPlayAll"
             @click="handlePlayAll"
@@ -1653,7 +1661,34 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   height: 230px;
   margin: var(--bew-space-10) 0;
   overflow: hidden;
+  color: var(--favorites-sidebar-text);
+
+  --favorites-sidebar-text: var(--bew-text-1);
+  --favorites-sidebar-text-muted: var(--bew-text-2);
+  --favorites-sidebar-text-subtle: var(--bew-text-3);
+  --favorites-sidebar-hover: var(--bew-fill-2);
+  --favorites-sidebar-active: var(--bew-fill-2);
+  --favorites-sidebar-active-text: var(--bew-text-1);
+  --favorites-sidebar-control: var(--bew-fill-1);
+  --favorites-sidebar-control-hover: var(--bew-fill-2);
+  --favorites-sidebar-control-border: var(--bew-border-color);
+  --favorites-sidebar-scrollbar: var(--bew-fill-3);
+}
+
+.favorites-sidebar-panel--cover {
+  --favorites-sidebar-text: #fff;
+  --favorites-sidebar-text-muted: rgba(255, 255, 255, 0.82);
+  --favorites-sidebar-text-subtle: rgba(255, 255, 255, 0.72);
+  --favorites-sidebar-hover: rgba(255, 255, 255, 0.16);
+  --favorites-sidebar-active: rgba(255, 255, 255, 0.35);
+  --favorites-sidebar-active-text: #fff;
+  --favorites-sidebar-control: rgba(255, 255, 255, 0.28);
+  --favorites-sidebar-control-hover: rgba(255, 255, 255, 0.36);
+  --favorites-sidebar-control-border: rgba(255, 255, 255, 0.32);
+  --favorites-sidebar-scrollbar: rgba(255, 255, 255, 0.35);
+  background: transparent;
   border-radius: var(--bew-panel-radius);
+  box-shadow: none;
 }
 
 .favorites-sidebar-background {
@@ -1665,7 +1700,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 .favorites-sidebar-background div {
   position: absolute;
   z-index: 1;
-  background: var(--bew-fill-4);
+  background: var(--bew-favorites-cover-mask);
   inset: 0;
 }
 
@@ -1697,7 +1732,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   flex: 0 0 auto;
   width: 100%;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--favorites-sidebar-text-subtle);
   background: var(--bew-skeleton);
   border-radius: var(--bew-media-radius);
   box-shadow: 0 16px 24px -12px rgba(0, 0, 0, 0.36);
@@ -1718,45 +1753,56 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 .favorites-sidebar-title h3,
 .favorites-sidebar-title p {
   margin: 0;
-  color: #fff;
+  color: var(--favorites-sidebar-text);
+}
+
+.favorites-sidebar-panel--cover .favorites-sidebar-title h3,
+.favorites-sidebar-panel--cover .favorites-sidebar-title p {
   text-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
 }
 
 .favorites-sidebar-title p {
   margin-top: var(--bew-space-1);
+  color: var(--favorites-sidebar-text-muted);
   font-size: var(--bew-font-size-caption);
   line-height: var(--bew-line-height-caption);
   opacity: 0.76;
 }
 
 .favorite-view-control {
-  --bew-segment-surface-background: rgba(255, 255, 255, 0.28);
+  --bew-segment-surface-background: var(--favorites-sidebar-control);
   --bew-segment-surface-shadow: none;
-  --bew-control-border-color: rgba(255, 255, 255, 0.32);
+  --bew-control-border-color: var(--favorites-sidebar-control-border);
   --bew-control-radius: var(--bew-interactive-radius);
   --bew-control-item-radius: var(--bew-radius-sm);
-  --bew-segment-item-color: rgba(255, 255, 255, 0.82);
-  --bew-segment-item-hover-current-color: #fff;
-  --bew-segment-item-hover-current-bg: var(--bew-segment-item-hover-bg-white);
-  --bew-segment-item-focus-color: #fff;
-  --bew-segment-item-focus-bg: var(--bew-segment-item-hover-bg-white);
-  --bew-segment-item-current-color: #fff;
-  --bew-segment-item-active-bg-white: rgba(255, 255, 255, 0.24);
-  --bew-segment-item-active-shadow-white: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  --bew-segment-item-active-bg: var(--bew-segment-item-active-bg-white);
-  --bew-segment-item-active-shadow: var(--bew-segment-item-active-shadow-white);
+  --bew-segment-item-color: var(--favorites-sidebar-text-muted);
+  --bew-segment-item-hover-current-color: var(--favorites-sidebar-text);
+  --bew-segment-item-hover-current-bg: var(--favorites-sidebar-hover);
+  --bew-segment-item-focus-color: var(--favorites-sidebar-text);
+  --bew-segment-item-focus-bg: var(--favorites-sidebar-hover);
+  --bew-segment-item-current-color: var(--favorites-sidebar-active-text);
+  --bew-segment-item-active-bg: var(--favorites-sidebar-active);
+  --bew-segment-item-active-shadow: none;
   --bew-liquid-indicator-radius: var(--bew-radius-sm);
-  --bew-liquid-indicator-bg-white: var(--bew-segment-item-active-bg-white);
-  --bew-liquid-indicator-shadow-white: var(--bew-segment-item-active-shadow-white);
-  --bew-segment-item-focus-ring-color: rgba(255, 255, 255, 0.72);
+  --bew-liquid-indicator-bg: var(--favorites-sidebar-active);
+  --bew-liquid-indicator-shadow: none;
+  --bew-segment-item-focus-ring-color: var(--bew-theme-color-80);
 
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.favorites-sidebar-panel--cover .favorite-view-control {
+  --bew-segment-item-active-bg: var(--bew-segment-item-active-bg-white);
+  --bew-segment-item-active-shadow: var(--bew-segment-item-active-shadow-white);
+  --bew-liquid-indicator-bg: var(--bew-segment-item-active-bg-white);
+  --bew-liquid-indicator-shadow: var(--bew-segment-item-active-shadow-white);
+  --bew-segment-item-focus-ring-color: rgba(255, 255, 255, 0.72);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.24);
 }
 
 .favorite-view-control.bew-segment-control--solid {
-  --bew-segment-surface-background: rgba(255, 255, 255, 0.28);
+  --bew-segment-surface-background: var(--favorites-sidebar-control);
 }
 
 .favorite-view-option {
@@ -1780,10 +1826,10 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   width: 28px;
   height: 28px;
   padding: 0;
-  color: #fff;
-  border: 0;
+  color: var(--favorites-sidebar-text);
+  border: var(--bew-control-border-width) solid var(--favorites-sidebar-control-border);
   border-radius: var(--bew-interactive-radius);
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--favorites-sidebar-control);
   backdrop-filter: var(--bew-filter-glass-1);
   cursor: pointer;
   transition:
@@ -1796,15 +1842,13 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   box-sizing: border-box;
   width: var(--bew-control-height);
   height: var(--bew-control-height);
-  background: rgba(255, 255, 255, 0.28);
-  border: var(--bew-control-border-width) solid rgba(255, 255, 255, 0.32);
 }
 
 .sidebar-manage-toggle:hover:not(:disabled),
 .sidebar-manage-toggle.active:not(:disabled),
 .sidebar-manage-action:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.36);
+  color: var(--favorites-sidebar-text);
+  background: var(--favorites-sidebar-control-hover);
 }
 
 .sidebar-manage-toggle:disabled {
@@ -1844,7 +1888,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   min-width: 0;
   padding: 0;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--favorites-sidebar-text-muted);
   font-size: var(--bew-font-size-control);
   font-weight: var(--bew-font-weight-medium);
   line-height: var(--bew-line-height-control);
@@ -1855,11 +1899,11 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 }
 
 .sidebar-manage-select:hover {
-  color: #fff;
+  color: var(--favorites-sidebar-text);
 }
 
 .sidebar-selected-count {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--favorites-sidebar-text-subtle);
   font-size: var(--bew-font-size-caption);
   line-height: var(--bew-line-height-caption);
 }
@@ -1898,15 +1942,15 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 }
 
 .category-item:hover:not(.row-disabled):not(.row-active) {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--favorites-sidebar-hover);
 }
 
 .category-item.row-active {
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--favorites-sidebar-active);
 }
 
 .category-item.row-selected {
-  background: color-mix(in oklab, var(--bew-theme-color), transparent 52%);
+  background: var(--favorites-sidebar-active);
 }
 
 .item-more-btn,
@@ -1922,7 +1966,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   place-items: center;
   padding: 0;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--favorites-sidebar-text-subtle);
   border: 0;
   border-radius: var(--bew-interactive-radius);
   background: transparent;
@@ -1933,8 +1977,8 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 }
 
 .item-more-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  color: var(--favorites-sidebar-text);
+  background: var(--favorites-sidebar-hover);
 }
 
 .item-more-btn span {
@@ -1951,7 +1995,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   width: 100%;
   min-height: var(--bew-control-height);
   padding: 0 var(--bew-space-3);
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--favorites-sidebar-text-muted);
   font-size: var(--bew-font-size-control);
   font-weight: var(--bew-font-weight-medium);
   line-height: var(--bew-line-height-control);
@@ -1973,23 +2017,23 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 }
 
 .category-item:hover .category-nav-item:not(:disabled):not(.active) {
-  color: #fff;
+  color: var(--favorites-sidebar-text);
   background: transparent;
 }
 
 .category-nav-item.active {
-  color: #fff;
+  color: var(--favorites-sidebar-active-text);
   background: transparent;
 }
 
 .category-nav-item.selected {
-  color: #fff;
+  color: var(--favorites-sidebar-active-text);
   background: transparent;
 }
 
 .article-nav-item {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.35);
+  color: var(--favorites-sidebar-active-text);
+  background: var(--favorites-sidebar-active);
 }
 
 .category-nav-item.locked {
@@ -2010,7 +2054,8 @@ function transformFavoriteArticle(item: FavoriteArticle) {
 .category-visibility {
   width: var(--bew-icon-size-sm);
   height: var(--bew-icon-size-sm);
-  opacity: 0.72;
+  color: var(--favorites-sidebar-text-subtle);
+  opacity: 1;
 }
 
 .category-title {
@@ -2073,11 +2118,6 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   max-width: 100%;
   margin: var(--bew-space-3) 0;
   padding: var(--bew-space-2);
-  background: var(--bew-elevated);
-  border: 1px solid var(--bew-popover-border-color);
-  border-radius: var(--bew-panel-radius);
-  box-shadow: var(--bew-shadow-1), var(--bew-shadow-edge-glow-1);
-  backdrop-filter: var(--bew-filter-glass-1);
   isolation: isolate;
 }
 
@@ -2247,7 +2287,7 @@ function transformFavoriteArticle(item: FavoriteArticle) {
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.35);
+    background-color: var(--favorites-sidebar-scrollbar);
     border-radius: var(--bew-radius-full);
   }
 
