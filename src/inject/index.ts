@@ -174,7 +174,7 @@ else if (shouldInitializePageScript) {
     tailToggleOffsetByKey: Map<string, number>
     /**
      * 按 rpid 缓存回复的 parent/root 等关系。
-     * 楼中楼翻页后父评论可能不在当前 DOM，仍需靠此结构挂到最近可见祖先。
+     * 翻页后用缓存补齐缺失的父评论占位层级。
      */
     replyMetaByRpid: Map<string, CommentReplyTreeCachedMeta>
     enabled: boolean
@@ -204,7 +204,7 @@ else if (shouldInitializePageScript) {
     children: CommentReplyTreeNode[]
     /**
      * 直接 parent 是否在当前页 DOM。
-     * 为 false 时视觉上挂在最近可见祖先下，需保留「回复 @真实父作者」提示。
+     * 缺失的父评论由独立占位节点表达层级。
      */
     directParentVisible: boolean
     /** 直接父回复作者（当前页或跨页缓存） */
@@ -360,7 +360,7 @@ else if (shouldInitializePageScript) {
           align-items: stretch;
         }
 
-        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer)[data-bewly-comment-reply-depth] {
+        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer, .bewly-comment-missing-parent)[data-bewly-comment-reply-depth] {
           box-sizing: border-box;
           display: block;
           padding-inline-start: var(--bew-comment-reply-indent, 0px);
@@ -372,16 +372,36 @@ else if (shouldInitializePageScript) {
           order: 2147483647;
         }
 
-        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer)[data-bewly-comment-reply-hidden] {
+        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer, .bewly-comment-missing-parent)[data-bewly-comment-reply-hidden] {
           display: none !important;
         }
 
-        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer)[data-bewly-comment-reply-collapsed] {
+        :host([data-bewly-comment-reply-tree]) #expander-contents > :is(bili-comment-reply-renderer, bili-comment-renderer, .bewly-comment-missing-parent)[data-bewly-comment-reply-collapsed] {
           box-sizing: border-box;
           height: var(--bew-space-6, 24px) !important;
           min-height: var(--bew-space-6, 24px) !important;
           overflow: hidden !important;
           visibility: hidden !important;
+        }
+
+        .bewly-comment-missing-parent__body {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--bew-space-2, 8px);
+          padding-block: var(--bew-space-3, 12px);
+          color: var(--bew-text-2, var(--text2, #61666d));
+          font-size: var(--bew-font-size-caption, 12px);
+          line-height: var(--bew-line-height-caption, 16px);
+          overflow-wrap: anywhere;
+        }
+
+        .bewly-comment-missing-parent__avatar {
+          display: grid;
+          place-items: center;
+          flex: 0 0 var(--bew-space-6, 24px);
+          height: var(--bew-space-6, 24px);
+          border-radius: var(--bew-radius-full, 50%);
+          background: var(--bew-fill-2, var(--bg2, #f1f2f3));
         }
 
         ${COMMENT_REPLY_TREE_GUIDES_CSS}
@@ -1912,6 +1932,7 @@ else if (shouldInitializePageScript) {
       const replyContainer = root?.querySelector<HTMLElement>('#expander-contents')
       if (replyContainer) {
         removeCommentReplyTreeGuides(component, replyContainer)
+        replyContainer.querySelectorAll('.bewly-comment-missing-parent').forEach(node => node.remove())
         Array.from(replyContainer.children)
           .filter(isCommentReplyRenderer)
           .forEach((renderer) => {
@@ -2057,10 +2078,12 @@ else if (shouldInitializePageScript) {
         const isTreeGuideNode = (node: Node) => (
           node instanceof Element
           && (node.id === COMMENT_REPLY_TREE_GUIDES_ID
+            || Boolean(node.closest('.bewly-comment-missing-parent'))
             || Boolean(node.closest(`#${COMMENT_REPLY_TREE_GUIDES_ID}`)))
         )
         const hasExternalChildListMutation = mutations.some(({ target, addedNodes, removedNodes }) => {
           if (target instanceof Element && (target.id === COMMENT_REPLY_TREE_GUIDES_ID
+            || target.closest('.bewly-comment-missing-parent')
             || target.closest(`#${COMMENT_REPLY_TREE_GUIDES_ID}`))) {
             return false
           }
@@ -2210,6 +2233,7 @@ else if (shouldInitializePageScript) {
   ): CommentReplyAvatarAnchor | null {
     const avatar = renderer.shadowRoot?.querySelector<HTMLElement>('#user-avatar')
       ?? renderer.shadowRoot?.querySelector<HTMLElement>('bili-avatar')
+      ?? renderer.querySelector<HTMLElement>('.bewly-comment-missing-parent__avatar')
     const avatarRect = avatar?.getBoundingClientRect()
     const hasValidAvatar = Boolean(avatarRect && avatarRect.width > 0 && avatarRect.height > 0)
 
@@ -3389,6 +3413,79 @@ else if (shouldInitializePageScript) {
     }).join('|')
   }
 
+  /** 缺失父评也占据真实树节点；相同父 ID 共用占位，加载到原评论后移除。 */
+  function addMissingCommentReplyTreeParents(
+    nodes: CommentReplyTreeNode[],
+    metaByRpid: Map<string, CommentReplyTreeCachedMeta>,
+    replyContainer: HTMLElement,
+  ) {
+    const nodeByRpid = new Map(nodes.filter(node => node.rpid).map(node => [node.rpid!, node]))
+    const existing = new Map(Array.from(
+      replyContainer.querySelectorAll<HTMLElement>('.bewly-comment-missing-parent'),
+    ).map(renderer => [renderer.dataset.parentRpid!, renderer]))
+    const retained = new Set<string>()
+    const language = currentSettings?.language || 'cmn-CN'
+    const labels: Record<string, string> = {
+      en: 'Comment not on this page or unavailable',
+      'cmn-TW': '評論不在本頁或已遺失',
+      jyut: '留言唔喺呢一頁或已遺失',
+      'cmn-CN': '评论不在本页或已丢失',
+    }
+    // 新增的占位也继续补齐已知父链；ID 去重同时阻止循环缓存无限扩展。
+    for (let index = 0; index < nodes.length; index++) {
+      const child = nodes[index]
+      const rpid = child.parentRpid
+      if (isCommentReplyTreeRootParent(rpid, child.rootRpid, child.rpid) || !rpid || nodeByRpid.has(rpid))
+        continue
+
+      const meta = metaByRpid.get(rpid)
+      const authorName = meta?.authorName ?? getReplyAtAuthorFromMessage(getCommentReplyData(child.renderer))
+      let renderer = existing.get(rpid)
+      if (!renderer) {
+        renderer = document.createElement('div')
+        renderer.className = 'bewly-comment-missing-parent'
+        renderer.dataset.parentRpid = rpid
+        const body = document.createElement('div')
+        body.className = 'bewly-comment-missing-parent__body'
+        const avatar = document.createElement('span')
+        avatar.className = 'bewly-comment-missing-parent__avatar'
+        avatar.textContent = '?'
+        avatar.setAttribute('aria-hidden', 'true')
+        const text = document.createElement('span')
+        text.className = 'bewly-comment-missing-parent__text'
+        body.append(avatar, text)
+        renderer.append(body)
+      }
+      const label = labels[language] ?? labels['cmn-CN']
+      const text = renderer.querySelector<HTMLElement>('.bewly-comment-missing-parent__text')!
+      const content = `${authorName ? `@${authorName} · ` : ''}${label}${meta?.messageText ? `：${truncateReplyMessageSnippet(meta.messageText)}` : ''}`
+      if (text.textContent !== content)
+        text.textContent = content
+      if (renderer.parentElement !== replyContainer)
+        replyContainer.append(renderer)
+      retained.add(rpid)
+      const parent: CommentReplyTreeNode = {
+        authorName,
+        renderer,
+        rpid,
+        parentRpid: meta?.parentRpid ?? null,
+        rootRpid: meta?.rootRpid ?? child.rootRpid,
+        ctime: meta?.ctime ?? child.ctime,
+        originalOrder: child.originalOrder,
+        children: [],
+        directParentVisible: true,
+        directParentAuthorName: null,
+        directParentMessageText: null,
+      }
+      nodeByRpid.set(rpid, parent)
+      nodes.push(parent)
+    }
+    existing.forEach((renderer, rpid) => {
+      if (!retained.has(rpid))
+        renderer.remove()
+    })
+  }
+
   function buildCommentReplyTreeOrder(
     nodes: CommentReplyTreeNode[],
     metaByRpid: Map<string, CommentReplyTreeCachedMeta> = new Map(),
@@ -3507,6 +3604,7 @@ else if (shouldInitializePageScript) {
       disconnectCommentReplyTreeResizeObserver(state)
       component.style.removeProperty('--bew-comment-reply-indent-step')
       removeCommentReplyTreeGuides(component, replyContainer)
+      replyContainer.querySelectorAll('.bewly-comment-missing-parent').forEach(node => node.remove())
       state.collapsedNodeKeys.clear()
       state.collapsedTailKeys.clear()
       state.branchToggleOffsetByKey.clear()
@@ -3566,6 +3664,7 @@ else if (shouldInitializePageScript) {
       }
     })
 
+    addMissingCommentReplyTreeParents(nodes, state.replyMetaByRpid, replyContainer)
     const orderedNodes = buildCommentReplyTreeOrder(nodes, state.replyMetaByRpid)
     const rootNodes = orderedNodes
       .filter(({ depth }) => depth === 0)
@@ -3589,7 +3688,7 @@ else if (shouldInitializePageScript) {
     })
     updateCommentReplyTreeVisibility(component, state, orderedNodes, rootNodes, collapseParentBody)
     setCommentReplyRendererOrder(
-      replyRenderers,
+      nodes.map(node => node.renderer),
       orderedNodes.map(({ node }) => node.renderer),
     )
     // 父节点展示：
