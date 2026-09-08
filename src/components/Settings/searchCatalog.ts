@@ -76,6 +76,12 @@ const momentsRoute: SearchRoute = {
   secondaryTitleKey: 'settings.plugin.moments',
   storageKey: bewlyPagesStorageKey,
 }
+const favoritesRoute: SearchRoute = {
+  menu: MenuType.BewlyPages,
+  secondaryPage: 'favorites',
+  secondaryTitleKey: 'settings.plugin.favorites',
+  storageKey: bewlyPagesStorageKey,
+}
 const videoCardRoute: SearchRoute = {
   menu: MenuType.BewlyComponents,
   secondaryPage: 'video-card',
